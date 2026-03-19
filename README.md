@@ -1,9 +1,6 @@
 # hac-hiring
 
-Research code for a 4-page NeurIPS workshop paper studying human-AI collaboration
-(HAC) policies for hiring decisions using the LSAC Bar Passage dataset.
-
-Course: Human-AI Collaboration — taught by Umang Bhatt, University of Cambridge.
+Code for studying human-AI collaboration (HAC) policies.
 
 ---
 
