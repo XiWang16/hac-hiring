@@ -112,14 +112,27 @@ class RAPSPolicy:
     def predict_set(self, probs: np.ndarray) -> list[list[int]]:
         """Build RAPS prediction sets for test points.
 
-        Include the highest-probability classes in order until the penalised
-        cumulative score exceeds tau_hat. Implements Lecture 1 Eq 1.11.
+        Class y is included iff its penalised cumulative score <= tau_hat.
+        Implements Lecture 1 Eq 1.11:
+
+            C_alpha(x) = {y in Y : sum_{j=1}^{k(x,y)} [p_hat_{(j)}(x)
+                          + lambda * 1{j > k_reg}] <= tau_hat}
+
+        Note: the check is performed BEFORE appending — the class that first
+        pushes cumsum above tau_hat is NOT included (unlike <= comparisons that
+        include the boundary class).  This is the correct interpretation of
+        Eq 1.11 (strict inequality on the stopping condition).
+
+        For binary classification with a well-calibrated model this typically
+        produces singleton sets (automate), with larger sets arising only when
+        tau_hat >= 1 + lambda (i.e. the model error rate exceeds alpha).
 
         Args:
             probs : shape (n, 2), column k = P(y=k).
 
         Returns:
             List of n lists, each containing 0, 1, or both class indices.
+            An empty list is possible in theory but rare in practice.
 
         Raises:
             RuntimeError: if fit() has not been called.
@@ -135,9 +148,9 @@ class RAPSPolicy:
                 cumsum += probs[i][class_j]
                 if j > self.k_reg:
                     cumsum += self.lambda_reg
-                pred_set.append(int(class_j))
-                if cumsum >= self.tau_hat_:
+                if cumsum > self.tau_hat_:   # score exceeds threshold: stop
                     break
+                pred_set.append(int(class_j))  # include only if score <= tau_hat
             sets.append(pred_set)
         return sets
 

@@ -28,8 +28,12 @@ def compute_risk_coverage_curve(
 ) -> pd.DataFrame:
     """Compute risk-coverage curve for confidence-threshold-based policies.
 
-    For each threshold t, treats instances with model_prob >= t as automated
+    For each threshold t, treats instances with confidence >= t as automated
     and measures error rate on that subset.
+
+    confidence = max(model_prob, 1 - model_prob) = P(m(x)=y|x), the probability
+    that the model's argmax prediction is correct (Lecture 1 Eq 1.8). Using raw
+    P(y=1) would fail to automate cases where the model is confident about class 0.
 
     Applies to both BaselinePolicy and RAPSPolicy outputs (both store
     model_prob in the results DataFrame).
@@ -43,12 +47,14 @@ def compute_risk_coverage_curve(
         pd.DataFrame with columns: threshold, coverage, selective_risk
     """
     model_probs = results_df["model_prob"].values
+    # Sweep on confidence = max(P(y=1), 1-P(y=1)) = P(predicted class is correct)
+    confidence = np.maximum(model_probs, 1.0 - model_probs)
     correct = results_df["correct"].values
     n = len(results_df)
 
     rows = []
     for t in thresholds:
-        automated = model_probs >= t
+        automated = confidence >= t
         cov = float(automated.sum() / n)
         if automated.any():
             risk = float(1.0 - correct[automated].mean())

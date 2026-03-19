@@ -9,8 +9,12 @@ Threshold derivation (Lecture 1 Eq 1.8):
     tau_star = 1 - C_esc / C_err
 
 At tau_star = 0.85 (with C_esc=0.15, C_err=1.0):
-  - If the model's calibrated confidence P(y=1|x) >= tau_star: automate.
+  - If the model's calibrated confidence s(x) = max(P(y=1|x), 1-P(y=1|x)) >= tau_star: automate.
   - Otherwise: defer to the human reviewer (action a1 — no AI support shown).
+
+Note: s(x) is the confidence in the predicted class = P(m(x)=y|x), NOT raw P(y=1|x).
+Using raw P(y=1) would cause incorrect deferrals when the model is very confident
+about the negative class (e.g., P(y=1)=0.02 → confidence=0.98, should automate).
 
 This provides a simple, interpretable baseline. The proposed policies (RAPS,
 Mozannar-Sontag) aim to improve on this by routing more intelligently.
@@ -30,7 +34,7 @@ class BaselinePolicy:
     The threshold tau_star is derived from the cost structure:
         tau_star = 1 - C_esc / C_err       (Lecture 1 Eq 1.8)
 
-    If calibrated P(y=1|x) >= tau_star: model decides (automate).
+    If confidence s(x) = max(P(y=1|x), 1-P(y=1|x)) >= tau_star: model decides (automate).
     Otherwise: human decides using action a1 (no support provided).
 
     Parameters
@@ -88,8 +92,13 @@ class BaselinePolicy:
         for i, (_, row) in enumerate(test_df.iterrows()):
             true_label = int(true_labels[i])
             model_prob = float(probs[i, 1])
+            # s(x) = confidence = P(m(x)=y|x) = probability the predicted class is correct
+            # Lecture 1 Eq 1.8: s(x) must be the confidence in the argmax prediction,
+            # not raw P(y=1). A model very confident about class 0 (P(y=1)=0.02) has
+            # confidence 0.98 and should automate, not defer.
+            confidence = max(model_prob, 1.0 - model_prob)
 
-            if model_prob >= self.tau_star:
+            if confidence >= self.tau_star:
                 decision = "automate"
                 final_pred = int(np.argmax(probs[i]))
             else:
