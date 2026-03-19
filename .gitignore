@@ -40,3 +40,4 @@ outputs/results/*.csv
 # Misc
 *.log
 *.tmp
+.venv/
